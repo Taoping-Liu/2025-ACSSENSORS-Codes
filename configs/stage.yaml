@@ -1,0 +1,116 @@
+data_cfg: 
+  type: EnoseDataset
+  data_dir: ./data
+  dataset_cfg:
+    class_train_samples: 
+      8: 5
+      9: 5
+    seq_len: 65 
+    channels: [0, 6, 8, 11, 12] 
+    UBC: [UBC_0]
+    Stage: [UBC_Early_8, UBC_Advanced_9]
+    VOC: [VOC_1, VOC_2, VOC_3, VOC_4, VOC_5]
+    Water: [Water_6]
+    Healthy: [Healthy_7]
+    All: [Stage] 
+    use_tsgm: True
+    tsgm_save_dir: ./tsgm/generated_data_stage
+    tsgm_cfg:
+    - type: GaussianNoise
+      class_id_list: [14, 15]
+      gen_num_list: [20, 20]
+      gen_params: 
+        mean: 0
+        variance: 0.3
+    - type: SliceAndShuffle
+      class_id_list: [14, 15]
+      gen_num_list: [20, 20]
+      gen_params: 
+        n_segments: 10
+    - type: Shuffle
+      class_id_list: [14, 15]
+      gen_num_list: [20, 20]
+      gen_params: 
+    - type: MagnitudeWarping
+      class_id_list: [14, 15]
+      gen_num_list: [20, 20]
+      gen_params: 
+        sigma: 0.2
+        n_knots: 4
+    - type: WindowWarping
+      class_id_list: [14, 15]
+      gen_num_list: [20, 20]
+      gen_params: 
+        window_ratio: 0.2
+        scales: [0.25, 1.0]
+  seed: 0 
+  scale: True 
+
+num_classes: &class_num 2 
+
+dataloader_cfg:
+  batch_size: 128
+  num_workers: 4 
+  pin_memory: True
+
+model_cfg:
+  type: TCFusion
+  cnn_config:
+    type: ResNet
+    in_ch: 6 
+    blocks: [3, 4, 6, 3] 
+    feat_dim: 512 
+    num_classes: *class_num
+    norm_linear: False
+  transformer_config:
+    type: Transformer
+    in_ch: 6
+    num_layers: 4
+    d_model: 128
+    nhead: 8
+    dim_ffn: 512
+    dropout: 0.1 
+    feat_dim: 512
+    num_classes: *class_num 
+    norm_linear: False
+  fusion: Hybrid # Cat, Add, Hybrid
+  feat_dim: 512 
+  num_classes: *class_num
+  norm_linear: False
+  aux_loss: False 
+  model_name: TCFusion_softmxafocal_center_0706_feadim128
+
+
+loss_cfg: 
+  - type: SoftmaxFocalLoss
+    loss_term_weight: 1.0
+    gamma: 2.0
+    alpha: 0.25
+  - type: CenterLoss
+    loss_term_weight: 0.1
+    num_classes: *class_num
+    feat_dim: 512
+
+
+    
+optimizer_cfg:
+  type: SGD
+  lr: 0.01
+  momentum: 0.9
+  weight_decay: 0.0005 
+scheduler_cfg:
+  type: MultiStepLR
+  gamma: 0.5
+  milestones: # Learning Rate Reduction at each milestones
+    - 100
+    - 200
+    - 250
+
+trainer_cfg:
+  type: BaseTrainer
+  save_dir: ./outputs/stage
+  epochs: 300
+  test_metric_threshold: 0.8
+  early_stop: 30
+  restore_hint: 0
+  target_class_idx: 1 
